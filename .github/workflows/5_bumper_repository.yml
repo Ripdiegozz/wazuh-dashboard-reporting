@@ -1,4 +1,4 @@
-name: Repository bumper
+name: (5.X) Repository bumper
 run-name: Bump ${{ github.ref_name }} (${{ inputs.id }})
 
 on:
@@ -44,7 +44,6 @@ jobs:
     env:
       CI_COMMIT_AUTHOR: wazuhci
       CI_COMMIT_EMAIL: 22834044+wazuhci@users.noreply.github.com
-      CI_GPG_PRIVATE_KEY: ${{ secrets.CI_WAZUHCI_GPG_PRIVATE }}
       GH_TOKEN: ${{ secrets.CI_WAZUHCI_BUMPER_TOKEN }}
       BUMP_SCRIPT_PATH: tools/repository_bumper.sh
       BUMP_LOG_PATH: tools/
@@ -54,25 +53,10 @@ jobs:
         run: |
           cat $GITHUB_EVENT_PATH | jq '.inputs'
 
-      - name: Set up GPG key
-        id: signing_setup
-        run: |
-          echo "${{ env.CI_GPG_PRIVATE_KEY }}" | gpg --batch --import
-          KEY_ID=$(gpg --list-secret-keys --with-colons | awk -F: '/^sec/ {print $5; exit}')
-          echo "gpg_key_id=$KEY_ID" >> $GITHUB_OUTPUT
-
       - name: Set up git
         run: |
           git config --global user.name "${{ env.CI_COMMIT_AUTHOR }}"
           git config --global user.email "${{ env.CI_COMMIT_EMAIL }}"
-          git config --global commit.gpgsign true
-          git config --global user.signingkey "${{ steps.signing_setup.outputs.gpg_key_id }}"
-          echo "use-agent" >> ~/.gnupg/gpg.conf
-          echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
-          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
-          echo RELOADAGENT | gpg-connect-agent
-          export DEBIAN_FRONTEND=noninteractive
-          export GPG_TTY=$(tty)
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -91,7 +75,6 @@ jobs:
           version=${{ env.VERSION }}
           stage=${{ env.STAGE }}
 
-          # Both version and stage provided
           if [[ -n "$version" && -n "$stage" ]]; then
             script_params="--version ${version} --stage ${stage}"
           elif [[ -z "$version" && -n "$stage" ]]; then
@@ -147,7 +130,6 @@ jobs:
         if: inputs.revert == true
         run: |
           ISSUE_NUMBER=$(echo "${{ inputs.issue-link }}" | awk -F'/' '{print $NF}')
-
           BUMP_BRANCH="enhancement/wqa${ISSUE_NUMBER}-bump-${{ github.ref_name }}"
 
           PR_NUMBER=$(gh pr list --head "$BUMP_BRANCH" --base "${{ github.ref_name }}" --state merged --json number --jq '.[0].number')
@@ -159,11 +141,9 @@ jobs:
           fi
 
           echo "Original PR found: #$PR_NUMBER"
-
           MERGE_COMMIT=$(gh pr view $PR_NUMBER --json mergeCommit --jq '.mergeCommit.oid')
 
           git revert -m 1 $MERGE_COMMIT --no-commit
-
           git checkout HEAD -- VERSION.json 2>/dev/null || true
           git checkout HEAD -- CHANGELOG.md 2>/dev/null || true
 
@@ -205,9 +185,9 @@ jobs:
           echo "Bump complete."
           echo "Branch: ${{ steps.vars.outputs.branch_name }}"
           if [[ "${{ steps.check_changes.outputs.has_changes }}" == "true" ]]; then
-             echo "PR: ${{ steps.create_pr.outputs.pull_request_url }}"
+            echo "PR: ${{ steps.create_pr.outputs.pull_request_url }}"
           else
-             echo "No file changes from bumper (no PR created)."
+            echo "No file changes from bumper (no PR created)."
           fi
           echo "Bumper scripts logs:"
           cat ${BUMP_LOG_PATH}/repository_bumper*log
@@ -218,9 +198,9 @@ jobs:
           echo "Revert bump complete."
           echo "Branch: ${{ steps.vars.outputs.branch_name }}"
           if [[ "${{ steps.revert_step.outputs.has_changes }}" == "true" ]]; then
-             echo "PR: ${{ steps.create_pr.outputs.pull_request_url }}"
+            echo "PR: ${{ steps.create_pr.outputs.pull_request_url }}"
           else
-             echo "No references to revert (no PR created)."
+            echo "No references to revert (no PR created)."
           fi
           echo "Revert bumper scripts logs:"
           cat ${BUMP_LOG_PATH}/repository_bumper*log || true
